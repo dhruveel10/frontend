@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, MessageSquare, FileText, Loader2, Sparkles, User, Bot, BarChart3, PieChart, TrendingUp, Moon, Sun } from 'lucide-react';
+import { Send, MessageSquare, FileText, Loader2, Sparkles, User, Bot, BarChart3, PieChart, TrendingUp, Moon, Sun, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell, LineChart, Line, Pie } from 'recharts';
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = 'https://financial-analysis-assistant.onrender.com/api';
 
 const CHART_COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899', '#14B8A6'];
 
@@ -21,7 +21,7 @@ const parseMarkdownText = (text, isDark) => {
     if (line.trim().startsWith('**') && line.trim().endsWith('**')) {
       const headerText = line.trim().slice(2, -2);
       elements.push(
-        <h3 key={`header-${index}`} className={`font-bold text-lg mt-4 mb-2 first:mt-0 ${
+        <h3 key={`header-${index}`} className={`font-bold text-base sm:text-lg mt-4 mb-2 first:mt-0 ${
           isDark ? 'text-white' : 'text-gray-900'
         }`}>
           {headerText}
@@ -34,11 +34,11 @@ const parseMarkdownText = (text, isDark) => {
       const bulletText = line.trim().slice(2);
       const parsedBullet = parseBoldText(bulletText, isDark);
       elements.push(
-        <div key={`bullet-${index}`} className="flex items-start gap-2 mb-1 ml-4">
-          <span className={`font-bold mt-1 ${
+        <div key={`bullet-${index}`} className="flex items-start gap-2 mb-1 ml-2 sm:ml-4">
+          <span className={`font-bold mt-1 text-sm ${
             isDark ? 'text-blue-400' : 'text-blue-600'
           }`}>•</span>
-          <span className={`leading-relaxed ${
+          <span className={`leading-relaxed text-sm sm:text-base ${
             isDark ? 'text-gray-200' : 'text-gray-700'
           }`}>{parsedBullet}</span>
         </div>
@@ -49,7 +49,7 @@ const parseMarkdownText = (text, isDark) => {
     const parsedLine = parseBoldText(line, isDark);
     if (parsedLine) {
       elements.push(
-        <p key={`line-${index}`} className={`mb-2 leading-relaxed ${
+        <p key={`line-${index}`} className={`mb-2 leading-relaxed text-sm sm:text-base ${
           isDark ? 'text-gray-200' : 'text-gray-700'
         }`}>
           {parsedLine}
@@ -95,22 +95,28 @@ const ChartComponent = ({ chart, isDark }) => {
   const tooltipBorder = isDark ? '#374151' : '#D1D5DB';
 
   const renderChart = () => {
+    const chartHeight = window.innerWidth < 768 ? 250 : 300;
+    const margin = window.innerWidth < 768 
+      ? { top: 10, right: 10, left: 10, bottom: 40 }
+      : { top: 20, right: 30, left: 20, bottom: 5 };
+
     switch (chart.type) {
       case 'bar':
         return (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chart.data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+          <ResponsiveContainer width="100%" height={chartHeight}>
+            <BarChart data={chart.data} margin={margin}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
               <XAxis 
                 dataKey="label" 
-                tick={{ fontSize: 12, fill: textColor }}
+                tick={{ fontSize: window.innerWidth < 768 ? 10 : 12, fill: textColor }}
                 stroke={textColor}
-                angle={-45}
+                angle={window.innerWidth < 768 ? -45 : -30}
                 textAnchor="end"
-                height={80}
+                height={window.innerWidth < 768 ? 60 : 80}
+                interval={0}
               />
               <YAxis 
-                tick={{ fontSize: 12, fill: textColor }}
+                tick={{ fontSize: window.innerWidth < 768 ? 10 : 12, fill: textColor }}
                 stroke={textColor}
               />
               <Tooltip 
@@ -120,7 +126,8 @@ const ChartComponent = ({ chart, isDark }) => {
                   backgroundColor: tooltipBg, 
                   border: `1px solid ${tooltipBorder}`,
                   borderRadius: '8px',
-                  color: isDark ? '#F9FAFB' : '#374151'
+                  color: isDark ? '#F9FAFB' : '#374151',
+                  fontSize: window.innerWidth < 768 ? '12px' : '14px'
                 }}
               />
               <Bar 
@@ -137,16 +144,17 @@ const ChartComponent = ({ chart, isDark }) => {
         );
 
       case 'pie':
+        const outerRadius = window.innerWidth < 768 ? 60 : 80;
         return (
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={chartHeight}>
             <RechartsPieChart>
               <Pie
                 data={chart.data}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ label, percent }) => `${label}: ${(percent * 100).toFixed(0)}%`}
-                outerRadius={80}
+                label={window.innerWidth < 768 ? false : ({ label, percent }) => `${label}: ${(percent * 100).toFixed(0)}%`}
+                outerRadius={outerRadius}
                 fill="#8884d8"
                 dataKey="value"
               >
@@ -160,7 +168,8 @@ const ChartComponent = ({ chart, isDark }) => {
                   backgroundColor: tooltipBg, 
                   border: `1px solid ${tooltipBorder}`,
                   borderRadius: '8px',
-                  color: isDark ? '#F9FAFB' : '#374151'
+                  color: isDark ? '#F9FAFB' : '#374151',
+                  fontSize: window.innerWidth < 768 ? '12px' : '14px'
                 }}
               />
             </RechartsPieChart>
@@ -169,16 +178,16 @@ const ChartComponent = ({ chart, isDark }) => {
 
       case 'line':
         return (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chart.data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+          <ResponsiveContainer width="100%" height={chartHeight}>
+            <LineChart data={chart.data} margin={margin}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
               <XAxis 
                 dataKey="label" 
-                tick={{ fontSize: 12, fill: textColor }}
+                tick={{ fontSize: window.innerWidth < 768 ? 10 : 12, fill: textColor }}
                 stroke={textColor}
               />
               <YAxis 
-                tick={{ fontSize: 12, fill: textColor }}
+                tick={{ fontSize: window.innerWidth < 768 ? 10 : 12, fill: textColor }}
                 stroke={textColor}
               />
               <Tooltip 
@@ -188,16 +197,17 @@ const ChartComponent = ({ chart, isDark }) => {
                   backgroundColor: tooltipBg, 
                   border: `1px solid ${tooltipBorder}`,
                   borderRadius: '8px',
-                  color: isDark ? '#F9FAFB' : '#374151'
+                  color: isDark ? '#F9FAFB' : '#374151',
+                  fontSize: window.innerWidth < 768 ? '12px' : '14px'
                 }}
               />
               <Line 
                 type="monotone" 
                 dataKey="value" 
                 stroke="#3B82F6" 
-                strokeWidth={3}
-                dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                activeDot={{ r: 6, stroke: '#3B82F6', strokeWidth: 2 }}
+                strokeWidth={window.innerWidth < 768 ? 2 : 3}
+                dot={{ fill: '#3B82F6', strokeWidth: 2, r: window.innerWidth < 768 ? 3 : 4 }}
+                activeDot={{ r: window.innerWidth < 768 ? 4 : 6, stroke: '#3B82F6', strokeWidth: 2 }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -205,7 +215,7 @@ const ChartComponent = ({ chart, isDark }) => {
 
       default:
         return (
-          <div className={`text-center py-8 ${
+          <div className={`text-center py-8 text-sm ${
             isDark ? 'text-gray-400' : 'text-gray-500'
           }`}>
             Unsupported chart type: {chart.type}
@@ -216,27 +226,28 @@ const ChartComponent = ({ chart, isDark }) => {
 
   const getChartIcon = () => {
     const iconClass = isDark ? 'text-blue-400' : 'text-blue-600';
+    const iconSize = window.innerWidth < 768 ? 14 : 16;
     switch (chart.type) {
       case 'bar':
-        return <BarChart3 size={16} className={iconClass} />;
+        return <BarChart3 size={iconSize} className={iconClass} />;
       case 'pie':
-        return <PieChart size={16} className={`${isDark ? 'text-purple-400' : 'text-purple-600'}`} />;
+        return <PieChart size={iconSize} className={`${isDark ? 'text-purple-400' : 'text-purple-600'}`} />;
       case 'line':
-        return <TrendingUp size={16} className={`${isDark ? 'text-green-400' : 'text-green-600'}`} />;
+        return <TrendingUp size={iconSize} className={`${isDark ? 'text-green-400' : 'text-green-600'}`} />;
       default:
-        return <BarChart3 size={16} className={iconClass} />;
+        return <BarChart3 size={iconSize} className={iconClass} />;
     }
   };
 
   return (
-    <div className={`mt-4 p-4 rounded-lg border ${
+    <div className={`mt-4 p-3 sm:p-4 rounded-lg border ${
       isDark 
         ? 'bg-gray-800 border-gray-600' 
         : 'bg-gray-50 border-gray-200'
     }`}>
       <div className="flex items-center gap-2 mb-3">
         {getChartIcon()}
-        <h4 className={`font-medium ${
+        <h4 className={`font-medium text-sm sm:text-base ${
           isDark ? 'text-gray-200' : 'text-gray-700'
         }`}>
           {chart.title || `${chart.type.charAt(0).toUpperCase() + chart.type.slice(1)} Chart`}
@@ -247,29 +258,32 @@ const ChartComponent = ({ chart, isDark }) => {
       <div className={`mt-3 text-xs ${
         isDark ? 'text-gray-400' : 'text-gray-500'
       }`}>
-        <span>Data points: {chart.data.length}</span>
-        {chart.data.length > 0 && (
-          <span className="ml-4">
-            Total: {chart.data.reduce((sum, item) => sum + (item.value || 0), 0).toLocaleString()}
-          </span>
-        )}
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          <span>Data points: {chart.data.length}</span>
+          {chart.data.length > 0 && (
+            <span>
+              Total: {chart.data.reduce((sum, item) => sum + (item.value || 0), 0).toLocaleString()}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
 const ChatMessage = ({ message, isUser, sources, chart, isDark }) => (
-  <div className={`flex mb-6 ${isUser ? 'justify-end' : 'justify-start'}`}>
-    <div className={`flex max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-3`}>
-      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+  <div className={`flex mb-4 sm:mb-6 ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex max-w-[95%] sm:max-w-[85%] ${isUser ? 'flex-row-reverse' : 'flex-row'} items-start gap-2 sm:gap-3`}>
+      <div className={`flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center ${
         isUser 
           ? 'bg-blue-600 text-white' 
           : 'bg-gradient-to-br from-purple-500 to-blue-600 text-white'
       }`}>
-        {isUser ? <User size={16} /> : <Bot size={16} />}
+        {isUser ? <User size={14} className="sm:hidden" /> : <Bot size={14} className="sm:hidden" />}
+        {isUser ? <User size={16} className="hidden sm:block" /> : <Bot size={16} className="hidden sm:block" />}
       </div>
       
-      <div className={`rounded-2xl px-4 py-3 shadow-sm ${
+      <div className={`rounded-2xl px-3 py-2 sm:px-4 sm:py-3 shadow-sm ${
         isUser
           ? 'bg-blue-600 text-white rounded-br-md'
           : isDark
@@ -278,7 +292,7 @@ const ChatMessage = ({ message, isUser, sources, chart, isDark }) => (
       }`}>
         <div className="leading-relaxed">
           {isUser ? (
-            <div className="whitespace-pre-wrap">{message}</div>
+            <div className="whitespace-pre-wrap text-sm sm:text-base">{message}</div>
           ) : (
             <div>{parseMarkdownText(message, isDark)}</div>
           )}
@@ -292,7 +306,8 @@ const ChatMessage = ({ message, isUser, sources, chart, isDark }) => (
               ? 'border-gray-600 text-gray-400' 
               : 'border-gray-200 text-gray-500'
           }`}>
-            <FileText size={12} />
+            <FileText size={10} className="sm:hidden" />
+            <FileText size={12} className="hidden sm:block" />
             <span>Sources: {sources.map(s => s.source.substring(0, 8)).join(', ')}</span>
           </div>
         )}
@@ -313,11 +328,12 @@ const SuggestedQuestions = ({ onQuestionClick, isDark }) => {
   ];
 
   return (
-    <div className="mb-8">
-      <h3 className={`text-sm font-medium mb-4 flex items-center gap-2 ${
+    <div className="mb-6 sm:mb-8">
+      <h3 className={`text-sm font-medium mb-3 sm:mb-4 flex items-center gap-2 ${
         isDark ? 'text-gray-300' : 'text-gray-500'
       }`}>
-        <Sparkles size={16} />
+        <Sparkles size={14} className="sm:hidden" />
+        <Sparkles size={16} className="hidden sm:block" />
         Suggested Questions
       </h3>
       <div className="flex flex-wrap gap-2">
@@ -325,7 +341,7 @@ const SuggestedQuestions = ({ onQuestionClick, isDark }) => {
           <button
             key={index}
             onClick={() => onQuestionClick(question)}
-            className={`px-4 py-2 text-sm border rounded-full transition-all duration-200 hover:shadow-md hover:scale-105 ${
+            className={`px-3 py-2 text-xs sm:text-sm border rounded-full transition-all duration-200 hover:shadow-md active:scale-95 ${
               isDark
                 ? 'bg-gray-800 hover:bg-gray-700 text-gray-200 border-gray-600 hover:border-blue-500'
                 : 'bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 text-gray-700 border-gray-200 hover:border-blue-300'
@@ -341,13 +357,13 @@ const SuggestedQuestions = ({ onQuestionClick, isDark }) => {
 
 const LoadingDots = ({ isDark }) => (
   <div className="flex gap-1">
-    <div className={`w-2 h-2 rounded-full animate-bounce ${
+    <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-bounce ${
       isDark ? 'bg-gray-400' : 'bg-gray-400'
     }`}></div>
-    <div className={`w-2 h-2 rounded-full animate-bounce ${
+    <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-bounce ${
       isDark ? 'bg-gray-400' : 'bg-gray-400'
     }`} style={{ animationDelay: '0.1s' }}></div>
-    <div className={`w-2 h-2 rounded-full animate-bounce ${
+    <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-bounce ${
       isDark ? 'bg-gray-400' : 'bg-gray-400'
     }`} style={{ animationDelay: '0.2s' }}></div>
   </div>
@@ -363,7 +379,8 @@ const ThemeToggle = ({ isDark, onToggle }) => (
     }`}
     title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
   >
-    {isDark ? <Sun size={18} /> : <Moon size={18} />}
+    {isDark ? <Sun size={16} className="sm:hidden" /> : <Moon size={16} className="sm:hidden" />}
+    {isDark ? <Sun size={18} className="hidden sm:block" /> : <Moon size={18} className="hidden sm:block" />}
   </button>
 );
 
@@ -451,71 +468,76 @@ export default function FinancialChatbot() {
         ? 'bg-gray-900' 
         : 'bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50'
     }`}>
-      <div className="max-w-5xl mx-auto p-4 h-screen flex flex-col">
-        <div className={`backdrop-blur-sm rounded-2xl shadow-lg border p-6 mb-6 transition-colors duration-300 ${
+      <div className="max-w-5xl mx-auto p-2 sm:p-4 h-screen flex flex-col">
+        <div className={`backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border p-4 sm:p-6 mb-4 sm:mb-6 transition-colors duration-300 ${
           isDark
             ? 'bg-gray-800 border-gray-700'
             : 'bg-white/80 border-white/20'
         }`}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center">
-                <MessageSquare size={24} className="text-white" />
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center flex-shrink-0">
+                <MessageSquare size={20} className="text-white sm:hidden" />
+                <MessageSquare size={24} className="text-white hidden sm:block" />
               </div>
-              <div>
-                <h1 className={`text-2xl font-bold bg-gradient-to-r bg-clip-text text-transparent ${
+              <div className="min-w-0 flex-1">
+                <h1 className={`text-lg sm:text-2xl font-bold bg-gradient-to-r bg-clip-text text-transparent truncate ${
                   isDark
                     ? 'from-gray-100 to-gray-300'
                     : 'from-gray-800 to-gray-600'
                 }`}>
                   Financial Analysis Assistant
                 </h1>
-                <p className={`text-sm ${
+                <p className={`text-xs sm:text-sm hidden sm:block ${
                   isDark ? 'text-gray-300' : 'text-gray-500'
                 }`}>Get instant insights and visualizations from your financial documents</p>
               </div>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
               <ThemeToggle isDark={isDark} onToggle={() => setIsDark(!isDark)} />
               {messages.length > 0 && (
                 <button
                   onClick={clearChat}
-                  className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                  className={`p-2 sm:px-4 sm:py-2 text-xs sm:text-sm rounded-lg transition-colors flex items-center gap-1 sm:gap-2 ${
                     isDark
                       ? 'text-gray-300 hover:text-gray-100 hover:bg-gray-700'
                       : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
                   }`}
                 >
-                  Clear Chat
+                  <X size={14} className="sm:hidden" />
+                  <span className="hidden sm:inline">Clear Chat</span>
                 </button>
               )}
             </div>
           </div>
         </div>
 
-        <div className={`flex-1 backdrop-blur-sm rounded-2xl shadow-lg border flex flex-col overflow-hidden transition-colors duration-300 ${
+        <div className={`flex-1 backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border flex flex-col overflow-hidden transition-colors duration-300 ${
           isDark
             ? 'bg-gray-800 border-gray-700'
             : 'bg-white/60 border-white/20'
         }`}>
-          <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: 'thin' }}>
+          <div className="flex-1 overflow-y-auto p-3 sm:p-6" style={{ scrollbarWidth: 'thin' }}>
             {messages.length === 0 ? (
               <div className="h-full flex flex-col justify-center">
-                <div className="text-center mb-12">
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 ${
+                <div className="text-center mb-8 sm:mb-12">
+                  <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4 ${
                     isDark
                       ? 'bg-gray-700'
                       : 'bg-gradient-to-br from-purple-100 to-blue-100'
                   }`}>
-                    <MessageSquare size={32} className={`${
+                    <MessageSquare size={24} className={`sm:hidden ${
+                      isDark ? 'text-purple-400' : 'text-purple-600'
+                    }`} />
+                    <MessageSquare size={32} className={`hidden sm:block ${
                       isDark ? 'text-purple-400' : 'text-purple-600'
                     }`} />
                   </div>
-                  <h2 className={`text-xl font-semibold mb-2 ${
+                  <h2 className={`text-lg sm:text-xl font-semibold mb-2 px-4 ${
                     isDark ? 'text-gray-100' : 'text-gray-800'
                   }`}>Welcome to your Financial Assistant</h2>
-                  <p className={`${
+                  <p className={`text-sm sm:text-base px-4 ${
                     isDark ? 'text-gray-300' : 'text-gray-500'
                   }`}>Ask me anything about your financial documents and I'll provide insights with interactive charts</p>
                 </div>
@@ -536,21 +558,22 @@ export default function FinancialChatbot() {
                 ))}
                 
                 {loading && (
-                  <div className="flex justify-start mb-6">
-                    <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white">
-                        <Bot size={16} />
+                  <div className="flex justify-start mb-4 sm:mb-6">
+                    <div className="flex items-start gap-2 sm:gap-3">
+                      <div className="flex-shrink-0 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center text-white">
+                        <Bot size={14} className="sm:hidden" />
+                        <Bot size={16} className="hidden sm:block" />
                       </div>
-                      <div className={`border rounded-2xl rounded-bl-md px-4 py-3 shadow-sm ${
+                      <div className={`border rounded-2xl rounded-bl-md px-3 py-2 sm:px-4 sm:py-3 shadow-sm ${
                         isDark
                           ? 'bg-gray-800 border-gray-600'
                           : 'bg-white border-gray-200'
                       }`}>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 sm:gap-3">
                           <LoadingDots isDark={isDark} />
-                          <span className={`text-sm ${
+                          <span className={`text-xs sm:text-sm ${
                             isDark ? 'text-gray-300' : 'text-gray-500'
-                          }`}>Analyzing documents and generating visualizations...</span>
+                          }`}>Analyzing documents...</span>
                         </div>
                       </div>
                     </div>
@@ -562,20 +585,20 @@ export default function FinancialChatbot() {
             )}
           </div>
 
-          <div className={`border-t p-4 transition-colors duration-300 ${
+          <div className={`border-t p-3 sm:p-4 transition-colors duration-300 ${
             isDark
               ? 'border-gray-700 bg-gray-800'
               : 'border-gray-200 bg-white/80'
           }`}>
-            <div className="flex gap-3 items-end">
+            <div className="flex gap-2 sm:gap-3 items-end">
               <div className="flex-1">
                 <textarea
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Ask about financial performance, trends, or request specific visualizations..."
-                  className={`w-full resize-none border rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 backdrop-blur-sm ${
+                  placeholder="Ask about financial performance, trends, or request visualizations..."
+                  className={`w-full resize-none border rounded-lg sm:rounded-xl px-3 py-2 sm:px-4 sm:py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 backdrop-blur-sm text-sm sm:text-base ${
                     isDark
                       ? 'border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400'
                       : 'border-gray-300 bg-white/90 text-gray-900 placeholder-gray-500'
@@ -583,7 +606,7 @@ export default function FinancialChatbot() {
                   rows={1}
                   disabled={loading}
                   style={{
-                    minHeight: '48px',
+                    minHeight: '40px',
                     maxHeight: '120px',
                     scrollbarWidth: 'thin'
                   }}
@@ -596,12 +619,17 @@ export default function FinancialChatbot() {
               <button
                 onClick={() => sendMessage()}
                 disabled={loading || !input.trim()}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white p-3 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2 min-w-[48px] justify-center"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white p-2.5 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl disabled:cursor-not-allowed disabled:shadow-none flex items-center gap-2 min-w-[40px] sm:min-w-[48px] justify-center active:scale-95"
               >
                 {loading ? (
-                  <Loader2 size={20} className="animate-spin" />
+                  <Loader2 size={18} className="animate-spin sm:hidden" />
                 ) : (
-                  <Send size={20} />
+                  <Send size={18} className="sm:hidden" />
+                )}
+                {loading ? (
+                  <Loader2 size={20} className="animate-spin hidden sm:block" />
+                ) : (
+                  <Send size={20} className="hidden sm:block" />
                 )}
               </button>
             </div>
