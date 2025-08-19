@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Send, MessageSquare, FileText, Loader2, Sparkles, User, Bot, BarChart3, PieChart, TrendingUp, Moon, Sun, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell, LineChart, Line, Pie } from 'recharts';
 
@@ -80,13 +80,85 @@ const parseBoldText = (text, isDark) => {
 };
 
 const ChartComponent = ({ chart, isDark }) => {
-  if (!chart || !chart.data || chart.data.length === 0) return null;
+  const [viewType, setViewType] = useState('grouped');
+  
+  const processedData = useMemo(() => {
+    if (!chart || !chart.data || chart.data.length === 0) {
+      return null;
+    }
+
+    const groupDataByMetric = (data) => {
+      const groups = {};
+      
+      data.forEach(item => {
+        const parts = item.label.split(' ');
+        const metric = parts[0];
+        const period = parts.slice(1).join(' ') || 'Current';
+        
+        if (!groups[metric]) {
+          groups[metric] = [];
+        }
+        
+        groups[metric].push({
+          ...item,
+          period,
+          metric
+        });
+      });
+      
+      return groups;
+    };
+
+    const createGroupedChartData = (data) => {
+      const groups = groupDataByMetric(data);
+      const periods = [...new Set(data.map(item => {
+        const parts = item.label.split(' ');
+        return parts.slice(1).join(' ') || 'Current';
+      }))];
+      
+      return periods.map(period => {
+        const periodData = { period };
+        Object.keys(groups).forEach(metric => {
+          const item = groups[metric].find(g => g.period === period);
+          if (item) {
+            periodData[metric] = item.value;
+          }
+        });
+        return periodData;
+      });
+    };
+
+    const groups = groupDataByMetric(chart.data);
+    const groupedData = createGroupedChartData(chart.data);
+    
+    const maxValue = Math.max(...chart.data.map(d => d.value));
+    const minValue = Math.min(...chart.data.map(d => d.value));
+    const avgValue = chart.data.reduce((sum, d) => sum + d.value, 0) / chart.data.length;
+    
+    return {
+      original: chart.data,
+      grouped: groupedData,
+      groups,
+      insights: { maxValue, minValue, avgValue },
+      metrics: Object.keys(groups)
+    };
+  }, [chart]);
+
+  if (!processedData) return null;
 
   const formatValue = (value) => {
     if (typeof value === 'number') {
-      return value.toLocaleString();
+      if (value >= 1000) {
+        return value.toLocaleString('en-IN');
+      }
+      return value.toFixed(1);
     }
     return value;
+  };
+
+  const formatCurrency = (value) => {
+    if (typeof value !== 'number') return value;
+    return `₹${formatValue(value)} Cr`;
   };
 
   const gridColor = isDark ? '#4B5563' : '#E5E7EB';
@@ -94,76 +166,161 @@ const ChartComponent = ({ chart, isDark }) => {
   const tooltipBg = isDark ? '#1F2937' : '#F9FAFB';
   const tooltipBorder = isDark ? '#374151' : '#D1D5DB';
 
-  const renderChart = () => {
-    const chartHeight = window.innerWidth < 768 ? 250 : 300;
-    const margin = window.innerWidth < 768 
-      ? { top: 10, right: 10, left: 10, bottom: 40 }
-      : { top: 20, right: 30, left: 20, bottom: 5 };
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (!active || !payload || !payload.length) return null;
 
-    switch (chart.type) {
-      case 'bar':
+    return (
+      <div className="p-3 rounded-lg shadow-lg border backdrop-blur-sm"
+           style={{ 
+             backgroundColor: tooltipBg, 
+             borderColor: tooltipBorder,
+             color: isDark ? '#F9FAFB' : '#374151'
+           }}>
+        <p className="font-medium mb-2">{label}</p>
+        {payload.map((entry, index) => (
+          <div key={index} className="flex items-center gap-2 mb-1 text-sm">
+            <div 
+              className="w-3 h-3 rounded"
+              style={{ backgroundColor: entry.color }}
+            />
+            <span className="font-medium">{entry.dataKey}:</span>
+            <span>{formatCurrency(entry.value)}</span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderInsights = () => {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4 text-xs">
+        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-blue-50'}`}>
+          <div className={`${isDark ? 'text-blue-400' : 'text-blue-600'} font-medium`}>
+            Highest
+          </div>
+          <div className={`${isDark ? 'text-gray-200' : 'text-gray-800'} font-bold`}>
+            {formatCurrency(processedData.insights.maxValue)}
+          </div>
+        </div>
+        
+        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-green-50'}`}>
+          <div className={`${isDark ? 'text-green-400' : 'text-green-600'} font-medium`}>
+            Average
+          </div>
+          <div className={`${isDark ? 'text-gray-200' : 'text-gray-800'} font-bold`}>
+            {formatCurrency(processedData.insights.avgValue)}
+          </div>
+        </div>
+        
+        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-purple-50'}`}>
+          <div className={`${isDark ? 'text-purple-400' : 'text-purple-600'} font-medium`}>
+            Metrics
+          </div>
+          <div className={`${isDark ? 'text-gray-200' : 'text-gray-800'} font-bold`}>
+            {processedData.metrics.length}
+          </div>
+        </div>
+        
+        <div className={`p-2 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-amber-50'}`}>
+          <div className={`${isDark ? 'text-amber-400' : 'text-amber-600'} font-medium`}>
+            Total
+          </div>
+          <div className={`${isDark ? 'text-gray-200' : 'text-gray-800'} font-bold`}>
+            {formatCurrency(processedData.original.reduce((sum, item) => sum + item.value, 0))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderViewToggle = () => (
+    <div className={`flex gap-1 mb-4 p-1 rounded-lg ${isDark ? 'bg-gray-700' : 'bg-gray-100'}`}>
+      {[
+        { key: 'grouped', label: 'Grouped', icon: BarChart3 },
+        { key: 'individual', label: 'Individual', icon: PieChart },
+        { key: 'comparison', label: 'Trend', icon: TrendingUp }
+      ].map(({ key, label, icon: Icon }) => (
+        <button
+          key={key}
+          onClick={() => setViewType(key)}
+          className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
+            viewType === key
+              ? isDark 
+                ? 'bg-blue-600 text-white shadow-sm' 
+                : 'bg-white text-blue-600 shadow-sm'
+              : isDark
+                ? 'text-gray-300 hover:text-white hover:bg-gray-600'
+                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-200'
+          }`}
+        >
+          <Icon size={12} />
+          <span className="hidden sm:inline">{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderChart = () => {
+    const chartHeight = window.innerWidth < 768 ? 280 : 350;
+    const margin = window.innerWidth < 768 
+      ? { top: 20, right: 20, left: 20, bottom: 60 }
+      : { top: 20, right: 30, left: 20, bottom: 40 };
+
+    switch (viewType) {
+      case 'grouped':
         return (
           <ResponsiveContainer width="100%" height={chartHeight}>
-            <BarChart data={chart.data} margin={margin}>
+            <BarChart data={processedData.grouped} margin={margin}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
               <XAxis 
-                dataKey="label" 
+                dataKey="period" 
                 tick={{ fontSize: window.innerWidth < 768 ? 10 : 12, fill: textColor }}
                 stroke={textColor}
-                angle={window.innerWidth < 768 ? -45 : -30}
-                textAnchor="end"
-                height={window.innerWidth < 768 ? 60 : 80}
-                interval={0}
+                angle={window.innerWidth < 768 ? -45 : 0}
+                textAnchor={window.innerWidth < 768 ? "end" : "middle"}
+                height={window.innerWidth < 768 ? 60 : 40}
               />
               <YAxis 
                 tick={{ fontSize: window.innerWidth < 768 ? 10 : 12, fill: textColor }}
                 stroke={textColor}
+                tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}K` : value.toString()}
               />
-              <Tooltip 
-                formatter={(value) => [formatValue(value), 'Value']}
-                labelStyle={{ color: isDark ? '#F9FAFB' : '#374151' }}
-                contentStyle={{ 
-                  backgroundColor: tooltipBg, 
-                  border: `1px solid ${tooltipBorder}`,
-                  borderRadius: '8px',
-                  color: isDark ? '#F9FAFB' : '#374151',
-                  fontSize: window.innerWidth < 768 ? '12px' : '14px'
-                }}
-              />
-              <Bar 
-                dataKey="value" 
-                fill="#3B82F6"
-                radius={[4, 4, 0, 0]}
-              >
-                {chart.data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                ))}
-              </Bar>
+              <Tooltip content={<CustomTooltip />} />
+              {processedData.metrics.map((metric, index) => (
+                <Bar 
+                  key={metric}
+                  dataKey={metric} 
+                  fill={CHART_COLORS[index % CHART_COLORS.length]}
+                  radius={[2, 2, 0, 0]}
+                  name={metric}
+                />
+              ))}
             </BarChart>
           </ResponsiveContainer>
         );
 
-      case 'pie':
-        const outerRadius = window.innerWidth < 768 ? 60 : 80;
+      case 'individual':
         return (
           <ResponsiveContainer width="100%" height={chartHeight}>
             <RechartsPieChart>
               <Pie
-                data={chart.data}
+                data={processedData.original}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={window.innerWidth < 768 ? false : ({ label, percent }) => `${label}: ${(percent * 100).toFixed(0)}%`}
-                outerRadius={outerRadius}
+                label={window.innerWidth < 768 ? false : ({ label, percent }) => 
+                  percent > 0.05 ? `${label.split(' ')[0]}: ${(percent * 100).toFixed(0)}%` : ''
+                }
+                outerRadius={window.innerWidth < 768 ? 70 : 90}
                 fill="#8884d8"
                 dataKey="value"
               >
-                {chart.data.map((entry, index) => (
+                {processedData.original.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip 
-                formatter={(value) => [formatValue(value), 'Value']}
+                formatter={(value, name) => [formatCurrency(value), name]}
                 contentStyle={{ 
                   backgroundColor: tooltipBg, 
                   border: `1px solid ${tooltipBorder}`,
@@ -176,23 +333,32 @@ const ChartComponent = ({ chart, isDark }) => {
           </ResponsiveContainer>
         );
 
-      case 'line':
+      case 'comparison':
+        const lineData = processedData.original.map((item, index) => ({
+          index: index + 1,
+          name: item.label.split(' ')[0],
+          value: item.value,
+          fullLabel: item.label
+        }));
+
         return (
           <ResponsiveContainer width="100%" height={chartHeight}>
-            <LineChart data={chart.data} margin={margin}>
+            <LineChart data={lineData} margin={margin}>
               <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
               <XAxis 
-                dataKey="label" 
+                dataKey="name" 
                 tick={{ fontSize: window.innerWidth < 768 ? 10 : 12, fill: textColor }}
                 stroke={textColor}
+                angle={window.innerWidth < 768 ? -45 : 0}
+                textAnchor={window.innerWidth < 768 ? "end" : "middle"}
               />
               <YAxis 
                 tick={{ fontSize: window.innerWidth < 768 ? 10 : 12, fill: textColor }}
                 stroke={textColor}
+                tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}K` : value.toString()}
               />
               <Tooltip 
-                formatter={(value) => [formatValue(value), 'Value']}
-                labelStyle={{ color: isDark ? '#F9FAFB' : '#374151' }}
+                formatter={(value, name, props) => [formatCurrency(value), props.payload.fullLabel]}
                 contentStyle={{ 
                   backgroundColor: tooltipBg, 
                   border: `1px solid ${tooltipBorder}`,
@@ -206,33 +372,27 @@ const ChartComponent = ({ chart, isDark }) => {
                 dataKey="value" 
                 stroke="#3B82F6" 
                 strokeWidth={window.innerWidth < 768 ? 2 : 3}
-                dot={{ fill: '#3B82F6', strokeWidth: 2, r: window.innerWidth < 768 ? 3 : 4 }}
-                activeDot={{ r: window.innerWidth < 768 ? 4 : 6, stroke: '#3B82F6', strokeWidth: 2 }}
+                dot={{ fill: '#3B82F6', strokeWidth: 2, r: window.innerWidth < 768 ? 4 : 5 }}
+                activeDot={{ r: window.innerWidth < 768 ? 5 : 7, stroke: '#3B82F6', strokeWidth: 2 }}
               />
             </LineChart>
           </ResponsiveContainer>
         );
 
       default:
-        return (
-          <div className={`text-center py-8 text-sm ${
-            isDark ? 'text-gray-400' : 'text-gray-500'
-          }`}>
-            Unsupported chart type: {chart.type}
-          </div>
-        );
+        return null;
     }
   };
 
   const getChartIcon = () => {
     const iconClass = isDark ? 'text-blue-400' : 'text-blue-600';
-    const iconSize = window.innerWidth < 768 ? 14 : 16;
-    switch (chart.type) {
-      case 'bar':
+    const iconSize = window.innerWidth < 768 ? 16 : 18;
+    switch (viewType) {
+      case 'grouped':
         return <BarChart3 size={iconSize} className={iconClass} />;
-      case 'pie':
+      case 'individual':
         return <PieChart size={iconSize} className={`${isDark ? 'text-purple-400' : 'text-purple-600'}`} />;
-      case 'line':
+      case 'comparison':
         return <TrendingUp size={iconSize} className={`${isDark ? 'text-green-400' : 'text-green-600'}`} />;
       default:
         return <BarChart3 size={iconSize} className={iconClass} />;
@@ -240,31 +400,65 @@ const ChartComponent = ({ chart, isDark }) => {
   };
 
   return (
-    <div className={`mt-4 p-3 sm:p-4 rounded-lg border ${
+    <div className={`mt-6 p-4 sm:p-6 rounded-xl border shadow-sm ${
       isDark 
         ? 'bg-gray-800 border-gray-600' 
-        : 'bg-gray-50 border-gray-200'
+        : 'bg-white border-gray-200'
     }`}>
-      <div className="flex items-center gap-2 mb-3">
-        {getChartIcon()}
-        <h4 className={`font-medium text-sm sm:text-base ${
-          isDark ? 'text-gray-200' : 'text-gray-700'
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          {getChartIcon()}
+          <h4 className={`font-semibold text-base sm:text-lg ${
+            isDark ? 'text-gray-100' : 'text-gray-800'
+          }`}>
+            {chart.title || 'Financial Analysis'}
+          </h4>
+        </div>
+        
+        <div className={`text-xs px-2 py-1 rounded-full ${
+          isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
         }`}>
-          {chart.title || `${chart.type.charAt(0).toUpperCase() + chart.type.slice(1)} Chart`}
-        </h4>
+          {processedData.original.length} data points
+        </div>
       </div>
-      {renderChart()}
+
+      {renderInsights()}
+      {renderViewToggle()}
       
-      <div className={`mt-3 text-xs ${
+      <div className={`rounded-lg p-2 ${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+        {renderChart()}
+      </div>
+      
+      <div className={`mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs ${
         isDark ? 'text-gray-400' : 'text-gray-500'
       }`}>
-        <div className="flex flex-wrap gap-x-4 gap-y-1">
-          <span>Data points: {chart.data.length}</span>
-          {chart.data.length > 0 && (
-            <span>
-              Total: {chart.data.reduce((sum, item) => sum + (item.value || 0), 0).toLocaleString()}
-            </span>
-          )}
+        <div>
+          <div className="font-medium mb-1">Key Metrics:</div>
+          <div className="space-y-1">
+            {processedData.metrics.slice(0, 3).map((metric, index) => (
+              <div key={metric} className="flex items-center gap-2">
+                <div 
+                  className="w-2 h-2 rounded"
+                  style={{ backgroundColor: CHART_COLORS[index] }}
+                />
+                <span>{metric}</span>
+              </div>
+            ))}
+            {processedData.metrics.length > 3 && (
+              <div className="text-xs opacity-75">
+                +{processedData.metrics.length - 3} more
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div>
+          <div className="font-medium mb-1">Summary:</div>
+          <div>
+            <div>Max: {formatCurrency(processedData.insights.maxValue)}</div>
+            <div>Min: {formatCurrency(processedData.insights.minValue)}</div>
+            <div>Total: {formatCurrency(processedData.original.reduce((sum, item) => sum + item.value, 0))}</div>
+          </div>
         </div>
       </div>
     </div>
