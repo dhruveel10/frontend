@@ -324,7 +324,7 @@ const SuggestedQuestions = ({ onQuestionClick, isDark }) => {
     "What are the main business segments?",
     "Analyze the order backlog performance",
     "Visualize revenue by business division",
-    "Show quarterly performance comparison"
+    "Show quarterly performance comparison for Jindal Steel",
   ];
 
   return (
