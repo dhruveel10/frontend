@@ -106,8 +106,8 @@ const parseBoldText = (text, isDark) => {
   });
 };
 
-const ChatMessage = ({ message, isUser, sources, isDark }) => (
-  <div className={`message ${isUser ? 'user' : ''}`}>
+const ChatMessage = ({ message, isUser, sources, isDark, isStreaming }) => (
+  <div className={`message ${isUser ? 'user' : ''} ${isStreaming ? 'streaming' : ''}`}>
     <div className="message-content">
       <div className={`avatar ${isUser ? 'user' : 'bot'}`}>
         {isUser ? (
@@ -128,7 +128,10 @@ const ChatMessage = ({ message, isUser, sources, isDark }) => (
           {isUser ? (
             <div>{message}</div>
           ) : (
-            <div>{parseMarkdownText(message, isDark)}</div>
+            <div>
+              {parseMarkdownText(message, isDark)}
+              {isStreaming && <span className="typing-cursor">|</span>}
+            </div>
           )}
         </div>
         
@@ -258,6 +261,7 @@ export default function FinancialChatbot() {
   const [allSessions, setAllSessions] = useState([]);
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [streamingMessage, setStreamingMessage] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -283,7 +287,7 @@ export default function FinancialChatbot() {
   }, []);
 
   const initializeSocket = () => {
-    console.log('Attempting to connect to:', API_BASE);
+    //console.log('Attempting to connect to:', API_BASE);
     const newSocket = io(API_BASE, {
       transports: ['websocket', 'polling'],
       timeout: 20000,
@@ -313,7 +317,36 @@ export default function FinancialChatbot() {
       setLoading(false);
     });
     
+    newSocket.on('message-stream', (data) => {
+      if (data.sessionId && data.sessionId !== sessionId) {
+        setSessionId(data.sessionId);
+        setLocalStorageWithTTL('chatSessionId', data.sessionId);
+      }
+      
+      setStreamingMessage({
+        text: data.text,
+        isUser: false,
+        sources: data.sources || [],
+        isComplete: data.isComplete
+      });
+      
+      if (data.isComplete) {
+        // When streaming is complete, add to messages and clear streaming
+        setTimeout(() => {
+          setMessages(prev => [...prev, {
+            text: data.text,
+            isUser: false,
+            sources: data.sources || []
+          }]);
+          setStreamingMessage(null);
+          loadAllSessions();
+          setLoading(false);
+        }, 100);
+      }
+    });
+    
     newSocket.on('message-response', (data) => {
+      // Fallback for non-streaming responses
       const assistantMessage = {
         text: typeof data.response === 'string' ? data.response : 'No response received',
         isUser: false,
@@ -567,7 +600,18 @@ export default function FinancialChatbot() {
                   />
                 ))}
                 
-                {loading && (
+                {streamingMessage && (
+                  <ChatMessage
+                    key="streaming"
+                    message={streamingMessage.text}
+                    isUser={false}
+                    sources={streamingMessage.sources}
+                    isDark={isDark}
+                    isStreaming={true}
+                  />
+                )}
+                
+                {loading && !streamingMessage && (
                   <div className="loading-message">
                     <div className="message-content">
                       <div className="avatar bot">
