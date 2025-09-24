@@ -6,6 +6,43 @@ const API_BASE = process.env.REACT_APP_API_BASE;
 
 const CHART_COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899', '#14B8A6'];
 
+const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+const setLocalStorageWithTTL = (key, value, ttl = SESSION_TTL) => {
+  const now = new Date().getTime();
+  const item = {
+    value: value,
+    expiry: now + ttl
+  };
+  localStorage.setItem(key, JSON.stringify(item));
+};
+
+const getLocalStorageWithTTL = (key) => {
+  const itemStr = localStorage.getItem(key);
+  if (!itemStr) return null;
+  
+  try {
+    const item = JSON.parse(itemStr);
+    const now = new Date().getTime();
+    
+    if (now > item.expiry) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return item.value;
+  } catch (e) {
+    localStorage.removeItem(key);
+    return null;
+  }
+};
+
+const clearExpiredSessionData = () => {
+  const sessionId = getLocalStorageWithTTL('chatSessionId');
+  if (!sessionId) {
+    localStorage.removeItem('chatSessionId');
+  }
+};
+
 const parseMarkdownText = (text, isDark) => {
   if (!text || typeof text !== 'string') return '';
   
@@ -707,30 +744,43 @@ export default function FinancialChatbot() {
   };
 
   const loadOrCreateSession = async () => {
-    let storedSessionId = localStorage.getItem('chatSessionId');
+    clearExpiredSessionData();
+    let storedSessionId = getLocalStorageWithTTL('chatSessionId');
     
     if (storedSessionId) {
       try {
-        const response = await fetch(`${API_BASE}/session/${storedSessionId}/history`);
-        if (response.ok) {
-          const data = await response.json();
-          const formattedHistory = data.history.map(msg => ({
-            text: msg.text || msg.message || '',
-            isUser: msg.isUser,
-            sources: msg.sources || [],
-            chart: msg.chart || null
-          })).filter(msg => msg.text);
-          setMessages(formattedHistory);
-          setSessionId(storedSessionId);
-          return;
+        const existsResponse = await fetch(`${API_BASE}/session/${storedSessionId}/exists`);
+        if (existsResponse.ok) {
+          const existsData = await existsResponse.json();
+          if (!existsData.exists) {
+            localStorage.removeItem('chatSessionId');
+            storedSessionId = null;
+          }
+        }
+        
+        if (storedSessionId) {
+          const response = await fetch(`${API_BASE}/session/${storedSessionId}/history`);
+          if (response.ok) {
+            const data = await response.json();
+            const formattedHistory = data.history.map(msg => ({
+              text: msg.text || msg.message || '',
+              isUser: msg.isUser,
+              sources: msg.sources || [],
+              chart: msg.chart || null
+            })).filter(msg => msg.text);
+            setMessages(formattedHistory);
+            setSessionId(storedSessionId);
+            return;
+          }
         }
       } catch (error) {
         console.warn('Failed to load session history:', error);
+        localStorage.removeItem('chatSessionId');
       }
     }
     
     const newSessionId = generateSessionId();
-    localStorage.setItem('chatSessionId', newSessionId);
+    setLocalStorageWithTTL('chatSessionId', newSessionId);
     setSessionId(newSessionId);
   };
 
@@ -771,7 +821,7 @@ export default function FinancialChatbot() {
       
       if (data.sessionId && data.sessionId !== sessionId) {
         setSessionId(data.sessionId);
-        localStorage.setItem('chatSessionId', data.sessionId);
+        setLocalStorageWithTTL('chatSessionId', data.sessionId);
       }
       
       setMessages(prev => [...prev, assistantMessage]);
@@ -809,7 +859,7 @@ export default function FinancialChatbot() {
     }
     
     const newSessionId = generateSessionId();
-    localStorage.setItem('chatSessionId', newSessionId);
+    setLocalStorageWithTTL('chatSessionId', newSessionId);
     setSessionId(newSessionId);
     setMessages([]);
     inputRef.current?.focus();
@@ -830,7 +880,7 @@ export default function FinancialChatbot() {
         
         setMessages(formattedHistory);
         setSessionId(targetSessionId);
-        localStorage.setItem('chatSessionId', targetSessionId);
+        setLocalStorageWithTTL('chatSessionId', targetSessionId);
         setSidebarOpen(false);
       }
     } catch (error) {
@@ -840,7 +890,7 @@ export default function FinancialChatbot() {
 
   const createNewChat = () => {
     const newSessionId = generateSessionId();
-    localStorage.setItem('chatSessionId', newSessionId);
+    setLocalStorageWithTTL('chatSessionId', newSessionId);
     setSessionId(newSessionId);
     setMessages([]);
     setSidebarOpen(false);
