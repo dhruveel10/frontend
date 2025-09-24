@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Send, MessageSquare, FileText, Loader2, Sparkles, User, Bot, BarChart3, PieChart, TrendingUp, Moon, Sun, X } from 'lucide-react';
+import { Send, MessageSquare, FileText, Loader2, Sparkles, User, Bot, BarChart3, PieChart, TrendingUp, Moon, Sun, X, Menu, Plus, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell, LineChart, Line, Pie } from 'recharts';
 
 const API_BASE = process.env.REACT_APP_API_BASE;
@@ -7,7 +7,7 @@ const API_BASE = process.env.REACT_APP_API_BASE;
 const CHART_COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899', '#14B8A6'];
 
 const parseMarkdownText = (text, isDark) => {
-  if (!text) return '';
+  if (!text || typeof text !== 'string') return '';
   
   const lines = text.split('\n');
   const elements = [];
@@ -563,6 +563,97 @@ const LoadingDots = ({ isDark }) => (
   </div>
 );
 
+const Sidebar = ({ isOpen, onClose, sessions, currentSessionId, onSwitchSession, onNewChat, isDark }) => (
+  <div className={`fixed inset-y-0 left-0 z-50 w-80 transform transition-transform duration-300 ${
+    isOpen ? 'translate-x-0' : '-translate-x-full'
+  } ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} border-r`}>
+    <div className="flex flex-col h-full">
+      <div className={`flex items-center justify-between p-4 border-b ${
+        isDark ? 'border-gray-700' : 'border-gray-200'
+      }`}>
+        <h2 className={`text-lg font-semibold ${
+          isDark ? 'text-gray-100' : 'text-gray-800'
+        }`}>Chat History</h2>
+        <button
+          onClick={onClose}
+          className={`p-2 rounded-lg transition-colors ${
+            isDark
+              ? 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+          }`}
+        >
+          <X size={18} />
+        </button>
+      </div>
+
+      <div className="p-4">
+        <button
+          onClick={onNewChat}
+          className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
+            isDark
+              ? 'bg-blue-600 text-white hover:bg-blue-700'
+              : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}
+        >
+          <Plus size={18} />
+          <span>New Chat</span>
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
+        <div className={`text-xs font-medium mb-3 ${
+          isDark ? 'text-gray-400' : 'text-gray-500'
+        }`}>
+          Recent Sessions ({sessions.length})
+        </div>
+        
+        {sessions.length === 0 ? (
+          <div className={`text-sm text-center py-8 ${
+            isDark ? 'text-gray-500' : 'text-gray-400'
+          }`}>
+            No previous chats
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {sessions.map((session) => {
+              const isActive = session.sessionId === currentSessionId;
+              return (
+                <button
+                  key={session.sessionId}
+                  onClick={() => onSwitchSession(session.sessionId)}
+                  className={`w-full text-left p-3 rounded-lg transition-colors ${
+                    isActive
+                      ? isDark 
+                        ? 'bg-gray-700 border border-blue-500' 
+                        : 'bg-blue-50 border border-blue-300'
+                      : isDark
+                        ? 'hover:bg-gray-700 border border-transparent'
+                        : 'hover:bg-gray-50 border border-transparent'
+                  }`}
+                >
+                  <div className={`text-sm font-medium mb-1 ${
+                    isActive
+                      ? isDark ? 'text-blue-400' : 'text-blue-600'
+                      : isDark ? 'text-gray-200' : 'text-gray-700'
+                  }`}>
+                    Session {session.sessionId.substring(5, 12)}
+                  </div>
+                  <div className={`text-xs flex items-center gap-2 ${
+                    isDark ? 'text-gray-400' : 'text-gray-500'
+                  }`}>
+                    <Clock size={12} />
+                    {session.messageCount} messages
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
 const ThemeToggle = ({ isDark, onToggle }) => (
   <button
     onClick={onToggle}
@@ -583,6 +674,9 @@ export default function FinancialChatbot() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [allSessions, setAllSessions] = useState([]);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -596,7 +690,53 @@ export default function FinancialChatbot() {
 
   useEffect(() => {
     inputRef.current?.focus();
+    loadOrCreateSession();
+    loadAllSessions();
   }, []);
+
+  const loadAllSessions = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/sessions`);
+      if (response.ok) {
+        const data = await response.json();
+        setAllSessions(data.sessions || []);
+      }
+    } catch (error) {
+      console.warn('Failed to load all sessions:', error);
+    }
+  };
+
+  const loadOrCreateSession = async () => {
+    let storedSessionId = localStorage.getItem('chatSessionId');
+    
+    if (storedSessionId) {
+      try {
+        const response = await fetch(`${API_BASE}/session/${storedSessionId}/history`);
+        if (response.ok) {
+          const data = await response.json();
+          const formattedHistory = data.history.map(msg => ({
+            text: msg.text || msg.message || '',
+            isUser: msg.isUser,
+            sources: msg.sources || [],
+            chart: msg.chart || null
+          })).filter(msg => msg.text);
+          setMessages(formattedHistory);
+          setSessionId(storedSessionId);
+          return;
+        }
+      } catch (error) {
+        console.warn('Failed to load session history:', error);
+      }
+    }
+    
+    const newSessionId = generateSessionId();
+    localStorage.setItem('chatSessionId', newSessionId);
+    setSessionId(newSessionId);
+  };
+
+  const generateSessionId = () => {
+    return 'sess_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36);
+  };
 
   const sendMessage = async (messageText = input) => {
     if (!messageText.trim() || loading) return;
@@ -612,7 +752,7 @@ export default function FinancialChatbot() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           message: messageText,
-          sessionId: 'web-session'
+          sessionId: sessionId
         })
       });
 
@@ -623,13 +763,19 @@ export default function FinancialChatbot() {
       const data = await response.json();
       
       const assistantMessage = {
-        text: data.response || 'No response received',
+        text: typeof data.response === 'string' ? data.response : 'No response received',
         isUser: false,
         sources: Array.isArray(data.sources) ? data.sources : [],
         chart: data.chart || null
       };
       
+      if (data.sessionId && data.sessionId !== sessionId) {
+        setSessionId(data.sessionId);
+        localStorage.setItem('chatSessionId', data.sessionId);
+      }
+      
       setMessages(prev => [...prev, assistantMessage]);
+      loadAllSessions();
     } catch (error) {
       console.error('Send message error:', error);
       const errorMessage = {
@@ -651,8 +797,53 @@ export default function FinancialChatbot() {
     }
   };
 
-  const clearChat = () => {
+  const clearChat = async () => {
+    if (sessionId) {
+      try {
+        await fetch(`${API_BASE}/session/${sessionId}`, {
+          method: 'DELETE'
+        });
+      } catch (error) {
+        console.warn('Failed to clear session on server:', error);
+      }
+    }
+    
+    const newSessionId = generateSessionId();
+    localStorage.setItem('chatSessionId', newSessionId);
+    setSessionId(newSessionId);
     setMessages([]);
+    inputRef.current?.focus();
+    loadAllSessions();
+  };
+
+  const switchToSession = async (targetSessionId) => {
+    try {
+      const response = await fetch(`${API_BASE}/session/${targetSessionId}/history`);
+      if (response.ok) {
+        const data = await response.json();
+        const formattedHistory = data.history.map(msg => ({
+          text: msg.text || msg.message || '',
+          isUser: msg.isUser,
+          sources: msg.sources || [],
+          chart: msg.chart || null
+        })).filter(msg => msg.text);
+        
+        setMessages(formattedHistory);
+        setSessionId(targetSessionId);
+        localStorage.setItem('chatSessionId', targetSessionId);
+        setSidebarOpen(false);
+      }
+    } catch (error) {
+      console.warn('Failed to switch session:', error);
+    }
+  };
+
+  const createNewChat = () => {
+    const newSessionId = generateSessionId();
+    localStorage.setItem('chatSessionId', newSessionId);
+    setSessionId(newSessionId);
+    setMessages([]);
+    setSidebarOpen(false);
     inputRef.current?.focus();
   };
 
@@ -662,6 +853,23 @@ export default function FinancialChatbot() {
         ? 'bg-gray-900' 
         : 'bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50'
     }`}>
+      <Sidebar 
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        sessions={allSessions}
+        currentSessionId={sessionId}
+        onSwitchSession={switchToSession}
+        onNewChat={createNewChat}
+        isDark={isDark}
+      />
+      
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
       <div className="max-w-5xl mx-auto p-2 sm:p-4 h-screen flex flex-col">
         <div className={`backdrop-blur-sm rounded-xl sm:rounded-2xl shadow-lg border p-4 sm:p-6 mb-4 sm:mb-6 transition-colors duration-300 ${
           isDark
@@ -689,7 +897,25 @@ export default function FinancialChatbot() {
             </div>
             
             <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className={`p-2 rounded-lg transition-colors duration-200 ${
+                  isDark
+                    ? 'text-gray-300 hover:text-gray-100 hover:bg-gray-700'
+                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                }`}
+                title="Open chat history"
+              >
+                <Menu size={18} />
+              </button>
               <ThemeToggle isDark={isDark} onToggle={() => setIsDark(!isDark)} />
+              {sessionId && (
+                <div className={`text-xs px-2 py-1 rounded ${
+                  isDark ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  Session: {sessionId.substring(0, 12)}...
+                </div>
+              )}
               {messages.length > 0 && (
                 <button
                   onClick={clearChat}
@@ -790,7 +1016,7 @@ export default function FinancialChatbot() {
                   ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyPress}
                   placeholder="Ask about latest news, current events, or specific topics..."
                   className={`w-full resize-none border rounded-lg sm:rounded-xl px-3 py-2 sm:px-4 sm:py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 backdrop-blur-sm text-sm sm:text-base ${
                     isDark
@@ -831,7 +1057,7 @@ export default function FinancialChatbot() {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         * {
           scrollbar-width: thin;
           scrollbar-color: ${isDark ? '#4B5563 #1F2937' : '#cbd5e0 #f7fafc'};
