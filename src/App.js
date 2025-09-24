@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Send, MessageSquare, FileText, Loader2, Sparkles, User, Bot, BarChart3, PieChart, TrendingUp, Moon, Sun, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RechartsPieChart, Cell, LineChart, Line, Pie } from 'recharts';
 
-const API_BASE = 'https://financial-analysis-assistant.onrender.com/api';
+const API_BASE = process.env.REACT_APP_API_BASE;
 
 const CHART_COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#EC4899', '#14B8A6'];
 
@@ -512,13 +512,13 @@ const ChatMessage = ({ message, isUser, sources, chart, isDark }) => (
 
 const SuggestedQuestions = ({ onQuestionClick, isDark }) => {
   const questions = [
-    "What are the key financial highlights?",
-    "Show me revenue growth trends",
-    "Compare profit margins across quarters", 
-    "What are the main business segments?",
-    "Analyze the order backlog performance",
-    "Visualize revenue by business division",
-    "Show quarterly performance comparison for Jindal Steel",
+    "What are the latest technology news?",
+    "Tell me about recent political developments",
+    "What's happening in world news today?", 
+    "Show me recent business news updates",
+    "What are the trending news stories?",
+    "Give me a summary of today's headlines",
+    "What's the latest news from India?",
   ];
 
   return (
@@ -680,11 +680,11 @@ export default function FinancialChatbot() {
                     ? 'from-gray-100 to-gray-300'
                     : 'from-gray-800 to-gray-600'
                 }`}>
-                  Financial Analysis Assistant
+                  News Analysis Assistant
                 </h1>
                 <p className={`text-xs sm:text-sm hidden sm:block ${
                   isDark ? 'text-gray-300' : 'text-gray-500'
-                }`}>Get instant insights and visualizations from your financial documents</p>
+                }`}>Get instant insights and answers from the latest news articles</p>
               </div>
             </div>
             
@@ -730,10 +730,10 @@ export default function FinancialChatbot() {
                   </div>
                   <h2 className={`text-lg sm:text-xl font-semibold mb-2 px-4 ${
                     isDark ? 'text-gray-100' : 'text-gray-800'
-                  }`}>Welcome to your Financial Assistant</h2>
+                  }`}>Welcome to your News Assistant</h2>
                   <p className={`text-sm sm:text-base px-4 ${
                     isDark ? 'text-gray-300' : 'text-gray-500'
-                  }`}>Ask me anything about your financial documents and I'll provide insights with interactive charts</p>
+                  }`}>Ask me anything about the latest news and I'll provide insights from current articles</p>
                 </div>
                 
                 <SuggestedQuestions onQuestionClick={sendMessage} isDark={isDark} />
@@ -791,7 +791,7 @@ export default function FinancialChatbot() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Ask about financial performance, trends, or request visualizations..."
+                  placeholder="Ask about latest news, current events, or specific topics..."
                   className={`w-full resize-none border rounded-lg sm:rounded-xl px-3 py-2 sm:px-4 sm:py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 backdrop-blur-sm text-sm sm:text-base ${
                     isDark
                       ? 'border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-400'
