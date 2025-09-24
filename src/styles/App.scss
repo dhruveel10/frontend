@@ -245,6 +245,50 @@ body {
         }
       }
       
+      .connection-status {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        
+        .status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          transition: all 0.2s ease;
+        }
+        
+        &.connected {
+          color: $success-color;
+          background: rgba(16, 185, 129, 0.1);
+          
+          .status-dot {
+            background: $success-color;
+            box-shadow: 0 0 4px rgba(16, 185, 129, 0.5);
+          }
+        }
+        
+        &.disconnected {
+          color: $danger-color;
+          background: rgba(239, 68, 68, 0.1);
+          
+          .status-dot {
+            background: $danger-color;
+          }
+        }
+        
+        @media (max-width: $tablet) {
+          padding: 0.25rem;
+          
+          .desktop-only {
+            display: none;
+          }
+        }
+      }
+      
       .clear-button {
         @extend .control-button;
         

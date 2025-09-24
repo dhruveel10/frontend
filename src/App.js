@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, MessageSquare, FileText, Loader2, Sparkles, User, Bot, Moon, Sun, X, Menu, Plus, Clock } from 'lucide-react';
+import { io } from 'socket.io-client';
 import './styles/App.scss';
 
-const API_BASE = process.env.REACT_APP_API_BASE;
+const API_BASE = process.env.REACT_APP_API_BASE || 'http://localhost:3005';
+const REST_API_BASE = `${API_BASE}/api`;
 
 const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
@@ -254,6 +256,8 @@ export default function FinancialChatbot() {
   const [sessionId, setSessionId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [allSessions, setAllSessions] = useState([]);
+  const [socket, setSocket] = useState(null);
+  const [isConnected, setIsConnected] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -269,11 +273,80 @@ export default function FinancialChatbot() {
     inputRef.current?.focus();
     loadOrCreateSession();
     loadAllSessions();
+    initializeSocket();
+    
+    return () => {
+      if (socket) {
+        socket.disconnect();
+      }
+    };
   }, []);
+
+  const initializeSocket = () => {
+    console.log('Attempting to connect to:', API_BASE);
+    const newSocket = io(API_BASE, {
+      transports: ['websocket', 'polling'],
+      timeout: 20000,
+      forceNew: true
+    });
+    
+    newSocket.on('connect', () => {
+      console.log('Connected to server via Socket.IO');
+      setIsConnected(true);
+    });
+    
+    newSocket.on('disconnect', (reason) => {
+      console.log('Disconnected from server:', reason);
+      setIsConnected(false);
+    });
+    
+    newSocket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      setIsConnected(false);
+    });
+    
+    newSocket.on('bot-typing', () => {
+      setLoading(true);
+    });
+    
+    newSocket.on('bot-typing-stop', () => {
+      setLoading(false);
+    });
+    
+    newSocket.on('message-response', (data) => {
+      const assistantMessage = {
+        text: typeof data.response === 'string' ? data.response : 'No response received',
+        isUser: false,
+        sources: Array.isArray(data.sources) ? data.sources : []
+      };
+      
+      if (data.sessionId && data.sessionId !== sessionId) {
+        setSessionId(data.sessionId);
+        setLocalStorageWithTTL('chatSessionId', data.sessionId);
+      }
+      
+      setMessages(prev => [...prev, assistantMessage]);
+      loadAllSessions();
+      setLoading(false);
+    });
+    
+    newSocket.on('error', (error) => {
+      console.error('Socket error:', error);
+      const errorMessage = {
+        text: `Sorry, I encountered an error: ${error.error || error.message}. Please try again.`,
+        isUser: false,
+        sources: []
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      setLoading(false);
+    });
+    
+    setSocket(newSocket);
+  };
 
   const loadAllSessions = async () => {
     try {
-      const response = await fetch(`${API_BASE}/sessions`);
+      const response = await fetch(`${REST_API_BASE}/sessions`);
       if (response.ok) {
         const data = await response.json();
         setAllSessions(data.sessions || []);
@@ -289,7 +362,7 @@ export default function FinancialChatbot() {
     
     if (storedSessionId) {
       try {
-        const existsResponse = await fetch(`${API_BASE}/session/${storedSessionId}/exists`);
+        const existsResponse = await fetch(`${REST_API_BASE}/session/${storedSessionId}/exists`);
         if (existsResponse.ok) {
           const existsData = await existsResponse.json();
           if (!existsData.exists) {
@@ -299,7 +372,7 @@ export default function FinancialChatbot() {
         }
         
         if (storedSessionId) {
-          const response = await fetch(`${API_BASE}/session/${storedSessionId}/history`);
+          const response = await fetch(`${REST_API_BASE}/session/${storedSessionId}/history`);
           if (response.ok) {
             const data = await response.json();
             const formattedHistory = data.history.map(msg => ({
@@ -327,54 +400,24 @@ export default function FinancialChatbot() {
     return 'sess_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now().toString(36);
   };
 
-  const sendMessage = async (messageText = input) => {
-    if (!messageText.trim() || loading) return;
+  const sendMessage = (messageText = input) => {
+    if (!messageText.trim() || loading || !socket || !isConnected) return;
 
     const userMessage = { text: messageText, isUser: true };
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
 
-    try {
-      const response = await fetch(`${API_BASE}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          message: messageText,
-          sessionId: sessionId
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      const assistantMessage = {
-        text: typeof data.response === 'string' ? data.response : 'No response received',
-        isUser: false,
-        sources: Array.isArray(data.sources) ? data.sources : []
-      };
-      
-      if (data.sessionId && data.sessionId !== sessionId) {
-        setSessionId(data.sessionId);
-        setLocalStorageWithTTL('chatSessionId', data.sessionId);
-      }
-      
-      setMessages(prev => [...prev, assistantMessage]);
-      loadAllSessions();
-    } catch (error) {
-      console.error('Send message error:', error);
-      const errorMessage = {
-        text: `Sorry, I encountered an error: ${error.message}. Please try again.`,
-        isUser: false,
-        sources: []
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setLoading(false);
+    // Join session if we have one
+    if (sessionId) {
+      socket.emit('join-session', sessionId);
     }
+
+    // Send message via Socket.IO
+    socket.emit('send-message', {
+      message: messageText,
+      sessionId: sessionId
+    });
   };
 
   const handleKeyPress = (e) => {
@@ -387,7 +430,7 @@ export default function FinancialChatbot() {
   const clearChat = async () => {
     if (sessionId) {
       try {
-        await fetch(`${API_BASE}/session/${sessionId}`, {
+        await fetch(`${REST_API_BASE}/session/${sessionId}`, {
           method: 'DELETE'
         });
       } catch (error) {
@@ -405,7 +448,7 @@ export default function FinancialChatbot() {
 
   const switchToSession = async (targetSessionId) => {
     try {
-      const response = await fetch(`${API_BASE}/session/${targetSessionId}/history`);
+      const response = await fetch(`${REST_API_BASE}/session/${targetSessionId}/history`);
       if (response.ok) {
         const data = await response.json();
         const formattedHistory = data.history.map(msg => ({
@@ -475,6 +518,10 @@ export default function FinancialChatbot() {
                 <Menu size={18} />
               </button>
               <ThemeToggle isDark={isDark} onToggle={() => setIsDark(!isDark)} />
+              <div className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
+                <div className="status-dot"></div>
+                <span className="desktop-only">{isConnected ? 'Connected' : 'Disconnected'}</span>
+              </div>
               {sessionId && (
                 <div className="session-id">
                   Session: {sessionId.substring(0, 12)}...
