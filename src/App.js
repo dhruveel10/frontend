@@ -636,7 +636,7 @@ const Sidebar = ({ isOpen, onClose, sessions, currentSessionId, onSwitchSession,
                       ? isDark ? 'text-blue-400' : 'text-blue-600'
                       : isDark ? 'text-gray-200' : 'text-gray-700'
                   }`}>
-                    Session {session.sessionId.substring(5, 12)}
+                    {session.title || `Session ${session.sessionId.substring(5, 12)}`}
                   </div>
                   <div className={`text-xs flex items-center gap-2 ${
                     isDark ? 'text-gray-400' : 'text-gray-500'
