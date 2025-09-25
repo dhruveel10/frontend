@@ -1014,14 +1014,68 @@ body {
         }
       }
       
+      &.inactive {
+        opacity: 0.6;
+        background: $light-bg-tertiary;
+        border: 1px dashed #D1D5DB;
+        
+        .dark & {
+          background: rgba(55, 65, 81, 0.5);
+          border-color: #4B5563;
+        }
+        
+        &:hover {
+          opacity: 0.8;
+          background: #E5E7EB;
+          
+          .dark & {
+            background: rgba(55, 65, 81, 0.8);
+          }
+        }
+        
+        .session-title {
+          color: $light-text-muted;
+          
+          .dark & {
+            color: $dark-text-muted;
+          }
+        }
+        
+        .session-meta {
+          color: $light-text-muted;
+          
+          .dark & {
+            color: $dark-text-muted;
+          }
+        }
+      }
+      
       .session-title {
         font-size: 0.875rem;
         font-weight: 500;
         margin-bottom: 0.25rem;
         color: $light-text-secondary;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         
         .dark & {
           color: $dark-text-secondary;
+        }
+        
+        .inactive-badge {
+          font-size: 0.625rem;
+          background: $warning-color;
+          color: white;
+          padding: 0.125rem 0.375rem;
+          border-radius: 0.25rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          
+          .dark & {
+            background: #D97706;
+          }
         }
       }
       

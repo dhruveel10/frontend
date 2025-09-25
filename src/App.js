@@ -209,20 +209,28 @@ const Sidebar = ({ isOpen, onClose, sessions, currentSessionId, onSwitchSession,
         <div>
           {sessions
             .sort((a, b) => {
+              // First sort by active/inactive status
+              if (a.isActive !== b.isActive) {
+                return a.isActive === false ? 1 : -1; // active first
+              }
+              // Then sort by last activity
               const dateA = a.lastActivity ? new Date(a.lastActivity) : new Date(0);
               const dateB = b.lastActivity ? new Date(b.lastActivity) : new Date(0);
               return dateB - dateA;
             })
             .map((session) => {
-            const isActive = session.sessionId === currentSessionId;
+            const isCurrentSession = session.sessionId === currentSessionId;
+            const isInactive = session.isActive === false;
+            
             return (
               <button
                 key={session.sessionId}
                 onClick={() => onSwitchSession(session.sessionId)}
-                className={`session-item ${isActive ? 'active' : ''}`}
+                className={`session-item ${isCurrentSession ? 'active' : ''} ${isInactive ? 'inactive' : ''}`}
               >
                 <div className="session-title">
                   {session.title || `Session ${session.sessionId.substring(5, 12)}`}
+                  {isInactive && <span className="inactive-badge">Inactive</span>}
                 </div>
                 <div className="session-meta">
                   <Clock size={12} />
