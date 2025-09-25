@@ -251,7 +251,7 @@ const ThemeToggle = ({ isDark, onToggle }) => (
   </button>
 );
 
-export default function FinancialChatbot() {
+export default function NewsAnalysisApp() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
