@@ -527,6 +527,14 @@ export default function FinancialChatbot() {
       <div className="container">
         <div className="header">
           <div className="header-content">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="control-button menu-button"
+              title="Open chat history"
+            >
+              <Menu size={18} />
+            </button>
+            
             <div className="logo-section">
               <div className="logo">
                 <MessageSquare size={20} className="mobile-only" />
@@ -539,13 +547,6 @@ export default function FinancialChatbot() {
             </div>
             
             <div className="header-controls">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="control-button"
-                title="Open chat history"
-              >
-                <Menu size={18} />
-              </button>
               <ThemeToggle isDark={isDark} onToggle={() => setIsDark(!isDark)} />
               <div className={`connection-status ${isConnected ? 'connected' : 'disconnected'}`}>
                 <div className="status-dot"></div>
