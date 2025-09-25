@@ -331,7 +331,6 @@ export default function FinancialChatbot() {
       });
       
       if (data.isComplete) {
-        // When streaming is complete, add to messages and clear streaming
         setTimeout(() => {
           setMessages(prev => [...prev, {
             text: data.text,
@@ -346,7 +345,6 @@ export default function FinancialChatbot() {
     });
     
     newSocket.on('message-response', (data) => {
-      // Fallback for non-streaming responses
       const assistantMessage = {
         text: typeof data.response === 'string' ? data.response : 'No response received',
         isUser: false,
@@ -441,12 +439,10 @@ export default function FinancialChatbot() {
     setInput('');
     setLoading(true);
 
-    // Join session if we have one
     if (sessionId) {
       socket.emit('join-session', sessionId);
     }
 
-    // Send message via Socket.IO
     socket.emit('send-message', {
       message: messageText,
       sessionId: sessionId
@@ -566,7 +562,7 @@ export default function FinancialChatbot() {
                   className="clear-button"
                 >
                   <X size={14} className="mobile-only" />
-                  <span className="desktop-only">Clear Chat</span>
+                  <span className="desktop-only">Delete Chat</span>
                 </button>
               )}
             </div>
