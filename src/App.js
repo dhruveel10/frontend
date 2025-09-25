@@ -207,7 +207,13 @@ const Sidebar = ({ isOpen, onClose, sessions, currentSessionId, onSwitchSession,
         </div>
       ) : (
         <div>
-          {sessions.map((session) => {
+          {sessions
+            .sort((a, b) => {
+              const dateA = a.lastActivity ? new Date(a.lastActivity) : new Date(0);
+              const dateB = b.lastActivity ? new Date(b.lastActivity) : new Date(0);
+              return dateB - dateA;
+            })
+            .map((session) => {
             const isActive = session.sessionId === currentSessionId;
             return (
               <button
@@ -380,6 +386,8 @@ export default function NewsAnalysisApp() {
       const response = await fetch(`${REST_API_BASE}/sessions`);
       if (response.ok) {
         const data = await response.json();
+        console.log('Received sessions data:', data);
+        console.log('Sessions array:', data.sessions);
         setAllSessions(data.sessions || []);
       }
     } catch (error) {

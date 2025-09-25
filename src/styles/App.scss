@@ -954,6 +954,7 @@ body {
   .sessions-list {
     flex: 1;
     overflow-y: auto;
+    max-height: calc(100vh - 200px);
     padding: 0 1rem 1rem;
     
     .sessions-title {
