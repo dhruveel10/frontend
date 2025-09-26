@@ -132,3 +132,5 @@ To deploy your own instance:
 - This README focuses on the frontend implementation
 - Backend documentation will be provided separately
 - The application requires a compatible backend service to function properly
+
+## [Backend Repo](https://github.com/dhruveel10/backend)
